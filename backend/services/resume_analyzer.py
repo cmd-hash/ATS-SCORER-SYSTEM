@@ -1,11 +1,11 @@
 import spacy
 from sentence_transformers import SentenceTransformer
 from typing import Dict, List, Optional
-from backend.models.schemas import IssueDetail
-from backend.services.groq_parser import parse_resume, parse_job_description
-from backend.services.jd_matcher import compare_resume_with_jd
-from backend.services.feedback_engine import analyze_issues, generate_issues_summary
-from backend.services.ats_scorer import calculate_overall_score, validate_skills_with_projects
+from models.schemas import IssueDetail
+from services.groq_parser import parse_resume, parse_job_description
+from services.jd_matcher import compare_resume_with_jd
+from services.feedback_engine import analyze_issues, generate_issues_summary
+from services.ats_scorer import calculate_overall_score, validate_skills_with_projects
 
 
 def analyze_full_resume(
@@ -65,7 +65,7 @@ def analyze_full_resume(
             nlp=nlp,
         )
 
-    from backend.utils.file_utils import (
+    from utils.file_utils import (
         get_default_grammar_results, get_default_location_results,
     )
     grammar_results  = get_default_grammar_results()

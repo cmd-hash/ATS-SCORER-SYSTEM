@@ -3,9 +3,9 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
-from backend.api.auth import get_current_user
-from backend.models.schemas import AnalysisResponse, ComponentScores, JDComparison, SkillValidationDetails
-from backend.utils.file_utils import (
+from api.auth import get_current_user
+from models.schemas import AnalysisResponse, ComponentScores, JDComparison, SkillValidationDetails
+from utils.file_utils import (
     get_default_grammar_results,
     get_default_location_results,
     get_default_skill_validation_results,
@@ -38,7 +38,7 @@ async def analyze_resume(
         file_bytes = await resume.read()
         filename   = resume.filename or 'resume'
 
-        from backend.services.resume_parser import (
+        from services.resume_parser import (
             FileParsingError,
             FileValidationError,
             parse_resume_file,
@@ -56,7 +56,7 @@ async def analyze_resume(
 
     #Full Analysis Pipeline 
     try:
-        from backend.services.resume_analyzer import analyze_full_resume
+        from services.resume_analyzer import analyze_full_resume
         
         result = analyze_full_resume(
             resume_text=resume_text,
@@ -68,7 +68,7 @@ async def analyze_resume(
         logger.error(f'Full analysis pipeline failed: {exc}')
         raise HTTPException(status_code=500, detail=f'Analysis pipeline failed: {exc}')
 
-    from backend.models.schemas import ComponentScores
+    from models.schemas import ComponentScores
 
     #Extract jd_comparison details
     jd_comparison_result = None
@@ -114,7 +114,7 @@ async def analyze_resume(
 
 
     try:
-        from backend.database.supabase_db import save_analysis
+        from database.supabase_db import save_analysis
         await save_analysis(user_id, filename, result)
     except Exception as exc:
         logger.warning(f'History save failed (non-blocking): {exc}')
@@ -133,7 +133,7 @@ async def health_check(request: Request):
 @router.get('/history')
 async def get_history(user_id: str = Depends(get_current_user)):
     """Return the signed-in user's past analyses (identity comes from the JWT)."""
-    from backend.database.supabase_db import get_user_history
+    from database.supabase_db import get_user_history
     try:
         return await get_user_history(user_id)
     except Exception as exc:
@@ -147,7 +147,7 @@ async def delete_history_entry(
     user_id: str = Depends(get_current_user),
 ):
     """Delete one analysis from the signed-in user's history."""
-    from backend.database.supabase_db import delete_analysis
+    from database.supabase_db import delete_analysis
     try:
         success = await delete_analysis(analysis_id, user_id)
         if not success:
@@ -165,8 +165,8 @@ async def generate_pdf(
     data: AnalysisResponse,
     user_id: str = Depends(get_current_user),
 ):
-    from backend.services.report_generator import generate_html_reports
-    from backend.services.pdf_export import generate_combined_pdf
+    from services.report_generator import generate_html_reports
+    from services.pdf_export import generate_combined_pdf
     from fastapi.responses import Response
 
     try:
@@ -190,9 +190,9 @@ async def generate_history_pdf(
     analysis_id: str,
     user_id: str = Depends(get_current_user),
 ):
-    from backend.database.supabase_db import get_user_history
-    from backend.services.report_generator import generate_html_reports
-    from backend.services.pdf_export import generate_combined_pdf
+    from database.supabase_db import get_user_history
+    from services.report_generator import generate_html_reports
+    from services.pdf_export import generate_combined_pdf
     from fastapi.responses import Response
 
     history = await get_user_history(user_id)

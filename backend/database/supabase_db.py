@@ -6,7 +6,7 @@ from typing import List, Optional, Dict
 
 logger = logging.getLogger('ats_resume_scorer')
 
-from backend.core.config import SUPABASE_URL, SUPABASE_KEY
+from core.config import SUPABASE_URL, SUPABASE_KEY
 
 def _get_headers():
     if not SUPABASE_URL or not SUPABASE_KEY:

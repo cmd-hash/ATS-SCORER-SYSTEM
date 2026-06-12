@@ -8,7 +8,7 @@ import numpy as np
 import spacy
 from sentence_transformers import SentenceTransformer
 
-from backend.utils.matching import fuzzy_match_keywords, normalize_skill
+from utils.matching import fuzzy_match_keywords, normalize_skill
 from rapidfuzz import fuzz
 
 
