@@ -28,29 +28,55 @@ class FileParsingError(Exception):
 class FileValidationError(Exception):
     pass
 
-def validate_file(file_data:bytes, filename:str)->Tuple[bool, str, Optional[str]]:
+def validate_file(file_data: bytes, filename: str) -> Tuple[bool, str, Optional[str]]:
     file_size_bytes = len(file_data)
+
+    # Check file size
     if file_size_bytes > MAX_FILE_SIZE_BYTES:
         size_mb = file_size_bytes / (1024 * 1024)
-        return False, (
-            f'File size ({size_mb:.2f} MB) exceeds the maximum of {MAX_FILE_SIZE_MB} MB. '
-            'Please upload a smaller file or compress your resume.'
-        ), None
-    
-    if file_size_bytes==0:
-        return False, 'uploade file is empty...please check the file you have uploaded and try again'
-    
+        return (
+            False,
+            f"File size ({size_mb:.2f} MB) exceeds the maximum of {MAX_FILE_SIZE_MB} MB. "
+            "Please upload a smaller file or compress your resume.",
+            None,
+        )
+
+    # Check empty file
+    if file_size_bytes == 0:
+        return (
+            False,
+            "Uploaded file is empty. Please check the file and try again.",
+            None,
+        )
+
     try:
-        mime_type=magic.from_buffer(file_data, mime=True)
+        # Determine file type using extension instead of python-magic
+        extension = os.path.splitext(filename)[1].lower()
+
+        extension_mapping = {
+            ".pdf": "pdf",
+            ".docx": "docx",
+            ".doc": "doc",
+        }
+
+        if extension not in extension_mapping:
+            supported = ", ".join(extension_mapping.keys())
+            return (
+                False,
+                f"Unsupported file type: {extension}. Supported types are: {supported}",
+                None,
+            )
+
+        file_type = extension_mapping[extension]
+
+        return True, "", file_type
+
     except Exception as e:
-        return False, f"error deteminin the file type : {e}", None
-    
-    if mime_type not in SUPPORTED_MIME_TYPES:
-        supported=', '.join(SUPPORTED_MIME_TYPES.keys()).upper()
-        return False, (
-            f'Unsupported file type: {mime_type}. '
-            f'Please upload one of: {supported}.'
-        ), None
+        return (
+            False,
+            f"Error determining file type: {str(e)}",
+            None,
+        )
     
     
 
