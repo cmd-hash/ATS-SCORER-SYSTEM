@@ -107,7 +107,7 @@ def validate_skills_with_projects(
     embedder: SentenceTransformer,
     threshold: float = 0.6,
 ) -> Dict:
-    
+
     if not skills:
         return {
             'validated_skills':      [],
@@ -123,30 +123,66 @@ def validate_skills_with_projects(
         if isinstance(e, dict)
     ).strip()
 
+    # Build all texts to encode in one batch
+    project_texts = [
+        f"{p.get('title', '')} {p.get('description', '')}"
+        for p in projects
+    ]
+    project_titles = [p.get('title', 'Untitled Project') for p in projects]
+
+    # Batch encode everything at once — O(1) calls instead of O(skills * projects)
+    all_texts = skills + project_texts
+    if experience_text:
+        all_texts.append(experience_text)
+
+    all_vecs = embedder.encode(all_texts, convert_to_tensor=False, batch_size=64)
+
+    skill_vecs   = all_vecs[:len(skills)]
+    project_vecs = all_vecs[len(skills):len(skills) + len(project_texts)]
+    exp_vec      = all_vecs[-1] if experience_text else None
+
+    def cosine_sim(a, b):
+        denom = np.linalg.norm(a) * np.linalg.norm(b)
+        if denom == 0:
+            return 0.0
+        return float(np.dot(a, b) / denom)
+
     validated_skills      = []
     unvalidated_skills    = []
     skill_project_mapping = {}
 
-    for skill in skills:
+    for i, skill in enumerate(skills):
+        skill_lower = skill.lower()
         matching_projects = []
         max_similarity    = 0.0
 
-        for project in projects:
-            project_text = f"{project.get('title', '')} {project.get('description', '')}"
-            matched, sim = _skill_matches(skill, project_text, embedder, threshold)
+        # Check projects
+        for j, proj_text in enumerate(project_texts):
+            # Fast substring check first
+            if skill_lower in proj_text.lower():
+                sim = 1.0
+            else:
+                sim = cosine_sim(skill_vecs[i], project_vecs[j])
             max_similarity = max(max_similarity, sim)
+            if sim >= threshold:
+                matching_projects.append(project_titles[j])
 
-            if matched:
-                matching_projects.append(project.get('title', 'Untitled Project'))
-
-        if experience_text:
-            matched, sim = _skill_matches(skill, experience_text, embedder, threshold)
+        # Check experience
+        if exp_vec is not None:
+            if skill_lower in experience_text.lower():
+                sim = 1.0
+            else:
+                sim = cosine_sim(skill_vecs[i], exp_vec)
             max_similarity = max(max_similarity, sim)
-            if matched and 'Experience Section' not in matching_projects:
+            if sim >= threshold and 'Experience Section' not in matching_projects:
                 matching_projects.append('Experience Section')
 
         if matching_projects:
-            validated_skills.append({'skill': skill, 'projects': matching_projects, 'similarity': max_similarity})
+            validated_skills.append({
+                'skill':      skill,
+                'projects':   matching_projects,
+                'similarity': max_similarity,
+            })
             skill_project_mapping[skill] = matching_projects
         else:
             unvalidated_skills.append(skill)
