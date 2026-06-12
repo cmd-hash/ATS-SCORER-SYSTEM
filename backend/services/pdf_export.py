@@ -1,31 +1,51 @@
-import io
 import logging
 
 try:
-    from weasyprint import HTML, CSS
+    from weasyprint import HTML
     WEASYPRINT_INSTALLED = True
-except ImportError:
+except Exception:
     WEASYPRINT_INSTALLED = False
 
-logger = logging.getLogger('ats_resume_scorer')
+logger = logging.getLogger("ats_resume_scorer")
+
 
 def generate_combined_pdf(html_docs: dict[str, str]) -> bytes:
     if not WEASYPRINT_INSTALLED:
-        raise ImportError("WeasyPrint is not installed. PDF generation unavailable.")
-        
+        raise RuntimeError(
+            "WeasyPrint is not installed or failed to load."
+        )
+
+    if not html_docs:
+        raise ValueError(
+            "No HTML documents were provided for PDF generation."
+        )
+
     documents = []
-    
-    # Render all 3 HTML strings to WeasyPrint Document objects
+
     for name, html_str in html_docs.items():
-        doc = HTML(string=html_str).render()
-        documents.append(doc)
-    
-    # Merge them into the first document
+        try:
+            doc = HTML(string=html_str).render()
+            documents.append(doc)
+        except Exception as e:
+            logger.exception(f"Failed to render HTML document: {name}")
+            raise RuntimeError(
+                f"Failed to render PDF section '{name}': {str(e)}"
+            )
+
+    if not documents:
+        raise ValueError(
+            "No PDF documents were successfully rendered."
+        )
+
     first_doc = documents[0]
+
     for other_doc in documents[1:]:
-        for page in other_doc.pages:
-            first_doc.pages.append(page)
-            
-    # Write combined PDF bytes
-    pdf_bytes = first_doc.write_pdf()
-    return pdf_bytes
+        first_doc.pages.extend(other_doc.pages)
+
+    try:
+        return first_doc.write_pdf()
+    except Exception as e:
+        logger.exception("Failed to write PDF")
+        raise RuntimeError(
+            f"Failed to generate PDF: {str(e)}"
+        )
